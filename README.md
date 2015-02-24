@@ -5,6 +5,16 @@ Command Line Tool for working with `Spark Packages`.
 
 `Spark Packages`: http://spark-packages.org
 
+Install
+-------
+
+Install the command line tool either using:
+
+`pip install spark-package` or `easy_install spark-package`.
+
+Note: You may have to prepend `sudo` to the the commands above in order to properly install the 
+package.
+
 Usage
 -----
 
