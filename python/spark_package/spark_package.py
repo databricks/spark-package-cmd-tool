@@ -190,9 +190,9 @@ def get_license_prompt():
 def create_license_file(license_id):
     file = 'LICENSE'
     if license_id == len(licenses):
-        res_file = resource_string('resources', 'LICENSE')
+        res_file = resource_string('spark_package.resources', 'LICENSE')
     else:
-        res_file = resource_string('resources.license_temps', licenses[license_id - 1][0])
+        res_file = resource_string('spark_package.resources.license_temps', licenses[license_id - 1][0])
     f = open(file, 'w')
     f.write(res_file)
     f.close()
@@ -203,8 +203,7 @@ def init_src_directories(suffix):
     os.makedirs(os.path.join("src", "test", suffix))
 
 
-def init_scala_directories(name, license_id):
-    init_src_directories("scala")
+def init_sbt_directories(name, license_id):
     os.makedirs("project")
     create_static_file("build.sbt")
     with open('build.sbt', 'a') as f:
@@ -245,10 +244,12 @@ def init_empty_package(base_dir, name, scala, java, python):
         init_python_directories()
     else:
         init_src_directories("resources")
+        if java or scala:
+            init_sbt_directories(name, license_id)
         if java:
             init_src_directories("java")
         if scala:
-            init_scala_directories(name, license_id)
+            init_src_directories("scala")
         if python:
             init_python_directories()
 
@@ -363,7 +364,7 @@ def create_static_file(file, permission=None):
         file_name = file[file.rfind(os.path.sep):]
     else:
         file_name = file
-    res_file = resource_string('resources', file_name)
+    res_file = resource_string('spark_package.resources', file_name)
     f = open(file, 'w')
     f.write(res_file)
     f.close()

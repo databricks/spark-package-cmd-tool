@@ -58,3 +58,4 @@ spark-package zip -f $PACKAGE_PATH -n "test/package" -v "0.2.1"
 Contributions
 -------------
 If you encounter bugs or want to contribute, feel free to submit an issue or pull request.
+
