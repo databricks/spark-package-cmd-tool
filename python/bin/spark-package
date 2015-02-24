@@ -1,0 +1,15 @@
+#!/usr/bin/env python
+
+try:
+    import spark_package
+except ImportError:
+    raise Exception("Unable to import spark-package. Please make sure that the spark-package " + \
+        "installation directory is listed in the PYTHONPATH environment variable. Also check " +\
+        "that your build of spark-package is functional and it can be imported.")
+
+import os
+import sys
+
+main_file = os.path.join(os.path.dirname(os.path.realpath(spark_package.__file__)), 'spark-package.py')
+
+os.execv(main_file, sys.argv)
