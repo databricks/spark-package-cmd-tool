@@ -11,7 +11,7 @@ Usage
 The `spark-package` command line tool is your helper when developing new `Spark Packages`.
 
 The tool provides two methods: `init` and `zip`. Use `spark-package -h` to see the list of available
- commands and options.
+commands and options.
 
 init
 ----
@@ -22,17 +22,19 @@ by selecting the value for `other license (decide later)`.
 
 A name must be supplied with the flag `-n` or `--name`. The name must match the name of the github 
 repository of the package. The layout for python can be generated with the flag `-p` or `--python`, 
-scala can be generated with `-s` or `--scala` and java folders can be generated with `-j` or `--java`.
- An output directory for the package can be supplied with `-o` or `--out`. The default for the output 
- path is the current working directory.
+scala can be generated with `-s` or `--scala` and java folders can be generated with `-j` or `--java`. 
+An output directory for the package can be supplied with `-o` or `--out`. The default for the output 
+path is the current working directory.
 Example usage:
  
 Generate a folder called "package" in the current directory setup with all files regarding to scala.
+
 ```
 spark-package init -n "test/package"
 ```
 
 Generate a folder called "package" in $PACKAGE_PATH setup with all files regarding to scala and python.
+
 ```
 spark-package init -s -p -n "test/package" -o $PACKAGE_PATH
 ```
@@ -50,7 +52,9 @@ release they want to distribute with the flag `-v` or `--version`. The output di
 zip file can be configured through `-o` or `--out`. The default path is the current working directory.
 
 Example Usage:
+
 Generate a zip file for distribution on the Spark Packages website with release version 0.2.1.
+
 ```
 spark-package zip -f $PACKAGE_PATH -n "test/package" -v "0.2.1"
 ```

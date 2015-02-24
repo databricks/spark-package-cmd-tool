@@ -1,9 +1,9 @@
 spark-package Command Line Tool
 ===============================
 
-Command Line Tool for working with `Spark Packages`_
+Command Line Tool for working with `Spark Packages`.
 
-.. _Spark Packages: http://spark-packages.org
+`Spark Packages`: http://spark-packages.org
 
 Usage
 -----
@@ -23,16 +23,18 @@ by selecting the value for `other license (decide later)`.
 A name must be supplied with the flag `-n` or `--name`. The name must match the name of the github 
 repository of the package. The layout for python can be generated with the flag `-p` or `--python`, 
 scala can be generated with `-s` or `--scala` and java folders can be generated with `-j` or `--java`.
- An output directory for the package can be supplied with `-o` or `--out`. The default for the output 
- path is the current working directory.
+An output directory for the package can be supplied with `-o` or `--out`. The default for the output
+path is the current working directory.
 Example usage:
  
 Generate a folder called "package" in the current directory setup with all files regarding to scala.
+
 ```
 spark-package init -n "test/package"
 ```
 
 Generate a folder called "package" in $PACKAGE_PATH setup with all files regarding to scala and python.
+
 ```
 spark-package init -s -p -n "test/package" -o $PACKAGE_PATH
 ```
@@ -50,7 +52,9 @@ release they want to distribute with the flag `-v` or `--version`. The output di
 zip file can be configured through `-o` or `--out`. The default path is the current working directory.
 
 Example Usage:
+
 Generate a zip file for distribution on the Spark Packages website with release version 0.2.1.
+
 ```
 spark-package zip -f $PACKAGE_PATH -n "test/package" -v "0.2.1"
 ```
