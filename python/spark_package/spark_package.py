@@ -183,7 +183,7 @@ licenses = [
 
 def get_license_prompt():
     msg = "Please select a license for your package (enter index):\n"
-    license_list = ["%d-\t%s\t\turl: %s" % (i + 1, l[0], l[1]) for i, l in enumerate(licenses)]
+    license_list = ["%d.\t%s\t\turl: %s" % (i + 1, l[0], l[1]) for i, l in enumerate(licenses)]
     return msg + '\n'.join(license_list) + "\n"
 
 
@@ -207,17 +207,22 @@ def init_src_directories(suffix):
 
 def init_sbt_directories(name, license_id):
     os.makedirs("project")
-    create_static_file("build.sbt")
-    with open('build.sbt', 'a') as f:
-        f.write("sparkPackageName := \"%s\"\n" % name)
-        if license_id != len(licenses):
-            license_name, license_url = licenses[license_id - 1]
-            f.write("\nlicenses := Seq(\"%s\" -> url(\"%s\"))\n" % (license_name, license_url))
+    build_replacements = [("$$packageName$$", name)]
+    if license_id != len(licenses):
+        license_name, license_url = licenses[license_id - 1]
+        build_replacements.append(("$$license$$", 
+                                   "licenses := Seq(\"%s\" -> url(\"%s\"))\n" % (license_name,
+                                                                                  license_url)))
+    else:
+        build_replacements.append(("$$license$$",
+                                   "// format: licenses := Seq($LICENSE_NAME -> $LICENSE_URL)"))
+    create_static_file("build.sbt", replacements=build_replacements)
+        
     create_static_file(os.path.join("project", "build.properties"))
     create_static_file(os.path.join("project", "plugins.sbt"))
-    os.makedirs("sbt")
-    create_static_file(os.path.join("sbt", "sbt"), 0o777)
-    create_static_file(os.path.join("sbt", "sbt-launch-lib.bash"), 0o777)
+    os.makedirs("build")
+    create_static_file(os.path.join("build", "sbt"), 0o777)
+    create_static_file(os.path.join("build", "sbt-launch-lib.bash"), 0o777)
 
 
 def init_python_directories():
@@ -233,6 +238,8 @@ def init_python_directories():
 def init_empty_package(base_dir, name, scala, java, python):
     repo_name = name.split("/")[1]
     package_dir = os.path.join(base_dir, repo_name)
+    if os.path.exists(package_dir):
+        raise RuntimeError("Directory %s already exists" % package_dir)
     license_id = int(raw_input(get_license_prompt()))
     while license_id < 1 or license_id > len(licenses):
         print "Please enter a value between 1-%d" % len(licenses)
@@ -358,7 +365,7 @@ def pom_add_element(root, prefix, parent, child, values, comparison_keys, key_or
         dependencies.append(dep)
 
 
-def create_static_file(file, permission=None):
+def create_static_file(file, permission=None, replacements=None):
     """
     Copies the static resource file to the newly created project.
     """
@@ -367,6 +374,9 @@ def create_static_file(file, permission=None):
     else:
         file_name = file
     res_file = resource_string('spark_package.resources', file_name)
+    if replacements is not None:
+        for placeholder, value in replacements:
+            res_file = res_file.replace(placeholder, value)
     f = open(file, 'w')
     f.write(res_file)
     f.close()
@@ -382,6 +392,23 @@ def main():
     p.add_option("--out", "-o", type="string", default=".", help="The output directory for the "
                                                                  "package")
     p.add_option("--name", "-n", type="string", help="The name of the package. " + name_template)
+    # Options for init
+    init_options = optparse.OptionGroup(
+        p, "'init' specific options", "Use these options when you want to set up an empty project "
+                                      "with the standard template. You must supply a name when "
+                                      "using init.")
+    init_options.add_option(
+        "--scala", "-s", action="store_true", default=False,
+        help="Include this if your package uses/will use scala code. If none of the language flags"
+             " are used, the package will be created using the scala template by default.")
+    init_options.add_option(
+        "--java", "-j", action="store_true", default=False,
+        help="Include this if your package uses/will use java code")
+    init_options.add_option(
+        "--python", "-p", action="store_true", default=False,
+        help="Include this if your package uses/will use scala code in addition to java "
+             "and/or python")
+    p.add_option_group(init_options)
     # Options for zip
     zip_options = optparse.OptionGroup(
         p, "'zip' specific options",
@@ -391,23 +418,6 @@ def main():
         help="The root folder of the package that will be prepped for release")
     zip_options.add_option("--version", "-v", type="string", help="The version of the release")
     p.add_option_group(zip_options)
-    # Options for init
-    init_options = optparse.OptionGroup(
-        p, "'init' specific options", "Use these options when you want to set up an empty project "
-                                      "with the standard template. You must supply a name when "
-                                      "using init.")
-    init_options.add_option(
-        "--scala", "-s", action="store_true", default=False,
-        help="Include this if your package uses/will use scala code. If none of the language flags"
-        " are used, the package will be created using the scala template by default.")
-    init_options.add_option(
-        "--java", "-j", action="store_true", default=False,
-        help="Include this if your package uses/will use java code")
-    init_options.add_option(
-        "--python", "-p", action="store_true", default=False,
-        help="Include this if your package uses/will use scala code in addition to java "
-        "and/or python")
-    p.add_option_group(init_options)
     options, arguments = p.parse_args()
     if len(arguments) == 0:
         show_error_and_exit("Please specify an action, such as 'init' or 'zip'", p)

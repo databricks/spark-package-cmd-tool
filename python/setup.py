@@ -6,7 +6,7 @@ resource_files = [f for f in resource_files if not path.isdir(f) and 'license_te
 
 setup(
     name='spark-package',
-    version="0.1",
+    version="0.2",
     description="A command line tool for creating Spark Packages and " \
         "generating release distributions",
     author='Burak Yavuz',
