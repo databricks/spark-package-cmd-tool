@@ -40,7 +40,7 @@ acquire_sbt_jar () {
   SBT_VERSION=`awk -F "=" '/sbt\\.version/ {print $2}' ./project/build.properties`
   URL1=http://typesafe.artifactoryonline.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/${SBT_VERSION}/sbt-launch.jar
   URL2=http://repo.typesafe.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/${SBT_VERSION}/sbt-launch.jar
-  JAR=sbt/sbt-launch-${SBT_VERSION}.jar
+  JAR=build/sbt-launch-${SBT_VERSION}.jar
 
   sbt_jar=$JAR
 
