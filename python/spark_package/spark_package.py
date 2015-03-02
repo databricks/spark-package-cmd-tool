@@ -190,11 +190,10 @@ def get_license_prompt():
 def create_license_file(license_id):
     file = 'LICENSE'
     if license_id == len(licenses):
-        res_file = resource_string('spark_package', os.path.join('resources', 'LICENSE'))
+        res_file = resource_string('spark_package.resources', 'LICENSE')
     else:
-        res_file = resource_string('spark_package',
-                                   os.path.join('resources', 'license_temps',
-                                                licenses[license_id - 1][0]))
+        res_file = resource_string('spark_package.resources.license_temps', 
+                                   licenses[license_id - 1][0])
     f = open(file, 'w')
     f.write(res_file)
     f.close()
