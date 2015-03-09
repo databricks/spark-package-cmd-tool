@@ -3,7 +3,7 @@
 
 scalaVersion := "2.10.4"
 
-sparkVersion := "1.2.1"
+sparkVersion := "1.3.0"
 
 spName := "$$packageName$$"
 
