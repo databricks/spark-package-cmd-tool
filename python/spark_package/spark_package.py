@@ -20,6 +20,7 @@ import shutil
 import base64
 import requests
 import subprocess
+import StringIO
 from getpass import getpass
 from pkg_resources import resource_string
 
@@ -168,6 +169,7 @@ def zip_artifact(root_dir, name, version, out_dir):
     artifact.close()
     os.chdir(pwd)
     shutil.rmtree(temp_dir)
+    print "Zip File created at: %s" % os.path.abspath(zip_path)
     return zip_path
 
 
@@ -270,12 +272,12 @@ def init_empty_package(base_dir, name, scala, java, python):
 def get_description(desc_prompt):
     desc_raw = raw_input(desc_prompt).strip()
     if desc_raw == "":
-        show_error_and_exit("Please supply a proper description or the path to a file.")
+        show_error_and_exit("Please supply a proper description or the path to a file:\n")
     if os.path.isfile(desc_raw):
         with open(desc_raw) as f:
             desc = f.read()
         assert len(desc.strip()) > 0, "The file you submitted is empty. Please supply a " \
-                                      "description of your package"
+                                      "description of your package:\n"
     else:
         desc = desc_raw
     return desc
@@ -285,9 +287,9 @@ def register_package(name, user, token):
     homepage = "https://github.com/" + name
     auth = base64.b64encode(user + ":" + token)
     short_desc = get_description("Please supply a short (one line) description of your package." + \
-                                 " You may also provide a file containing the short description")
+                                 " You may also provide a file containing the short description:\n")
     long_desc = get_description("Please supply a long description of your package." + \
-                                 " You may also provide a file containing the long description")
+                                 " You may also provide a file containing the long description:\n")
     
     url = "http://localhost:4444/api/submit-package"
     params = {"name": name, 
@@ -308,9 +310,11 @@ def publish_release(name, user, token, folder, version, out, zip):
     auth = base64.b64encode(user + ":" + token)
     pwd = os.getcwd()
     os.chdir(folder)
-    p = subprocess.Popen(["git", "rev-parse"' "HEAD'])
-    sys_out, _ = p.communicate()
-    assert sys_out is not None or len(sys_out.strip()) == 0, \
+    p = subprocess.Popen(["git", "rev-parse", "HEAD"], stdout=subprocess.PIPE)
+    sys_out, sys_err = p.communicate()
+    assert sys_out is not None, \
+        "Problem while accessing git commit sha. Is the folder also the local github repository?"
+    assert len(sys_out.strip()) != 0, \
         "Problem while accessing git commit sha. Is the folder also the local github repository?"
     git_sha1 = sys_out.strip()
     # -1 because prompt is one based, whereas the website is zero based.
@@ -318,20 +322,23 @@ def publish_release(name, user, token, folder, version, out, zip):
     os.chdir(pwd)
     if zip is None:
         zip = zip_artifact(folder, name, version, out)
-
+    binary_zip = ""
+    if zip is not None:
+        with open(zip) as f:
+            binary_zip = base64.b64encode(f.read())
+    artifact_zip = StringIO.StringIO(binary_zip)
     url = "http://localhost:4444/api/submit-release"
     params = {"git_commit_sha1": git_sha1,
               "version": version,
               "license_id": license_id,
               "name": name}
-    f = {"artifact_zip": zip}
+    f = {"artifact_zip": artifact_zip}
     h = {"Authorization": "Basic " + auth}
     resp = requests.post(url, headers=h, data=params, files=f)
     if resp.status_code == 201:
         print "\nSUCCESS: %s" % resp.text
     else:
         print "\nERROR: %s" % resp.text
-
 
 # <----- util Methods ------>
 
@@ -450,33 +457,34 @@ def read_credentials_file(file):
     with open(file, 'r') as f:
         content = [x.strip('\n') for x in f.readlines()]
         for line in content:
-            if 'user:' in line:
+            if 'user=' in line:
                 str_line = line.strip()
-                user = str_line[len('user:'):].strip()
-            elif 'token:' in line:
+                user = str_line[len('user='):].strip()
+            elif 'password=' in line:
                 str_line = line.strip()
-                token = str_line[len('token:'):].strip()
+                token = str_line[len('password='):].strip()
     if user == "":
         show_error_and_exit("Could not resolve github username from the file: %s. Please make " \
-                            "sure that it's supplied in its own line as,\nuser: $USERNAME" % file)
+                            "sure that it's supplied in its own line as,\nuser= $USERNAME" % file)
     if token == "":
         show_error_and_exit("Could not resolve github token from the file: %s. Please make " \
-                            "sure that it's supplied in its own line as,\ntoken: $TOKEN" % file)
+                            "sure that it's supplied in its own line as,\npassword= $TOKEN" % file)
     return user, token
         
         
 def resolve_credentials(user, token, file):
-    if os.path.isfile(file):
-        return read_credentials_file(file)
+    if file is not None:
+        if os.path.isfile(file):
+            return read_credentials_file(file)
     if user is None or len(user.strip()) == 0:
-        git_user = raw_input("Please enter your Github username.").strip()
+        git_user = raw_input("Please enter your Github username: ").strip()
     else:
         git_user = user
     if git_user == "":
         show_error_and_exit("Empty username provided!")
     if token is None or len(token.strip()) == 0:
         git_token = getpass("Please enter your Github Personal access token with read:org " + \
-                            "permissions.").strip()
+                            "permissions: ").strip()
     else:
         git_token = token
     if git_token == "":
@@ -511,6 +519,10 @@ def main():
     p.add_option("--out", "-o", type="string", default=".", help="The output directory for the "
                                                                  "package")
     p.add_option("--name", "-n", type="string", help="The name of the package. " + name_template)
+    p.add_option("--version", "-v", type="string", help="The version of the release, when using " +\
+                 "zip or publish.")
+    p.add_option("--folder", "-f", type="string",
+                 help="The root folder of the package that will be prepped for release")
     # Options for init
     init_options = optparse.OptionGroup(
         p, "'init' specific options", "Use these options when you want to set up an empty project "
@@ -528,21 +540,12 @@ def main():
         help="Include this if your package uses/will use scala code in addition to java "
              "and/or python")
     p.add_option_group(init_options)
-    # Options for zip
-    zip_options = optparse.OptionGroup(
-        p, "'zip' specific options",
-        "Set these options when you want to create a release artifact.")
-    zip_options.add_option(
-        "--folder", "-f", type="string",
-        help="The root folder of the package that will be prepped for release")
-    zip_options.add_option("--version", "-v", type="string", help="The version of the release")
-    p.add_option_group(zip_options)
-    # Options for register
+    # Credentials for register and publish
     register_options = optparse.OptionGroup(
-        p, "'register' specific options",
-        "Set these options when you want to register your package on Spark Packages. Please " + \
-        "supply the name of your Spark Package using -n or --name. This package must exist on "
-        "Github with the same name.")
+        p, "credentials",
+        "Set these options when you want to register your package or publish a release on " + \
+        "Spark Packages. If credentials are not supplied beforehand, you will be prompted to " + \
+        "enter them.")
     register_options.add_option(
         "--user", "-u", type="string", help="Your github username. It is safer to provide this " \
                                             "through a file using -c or --cred.")
@@ -560,27 +563,9 @@ def main():
     publish_options = optparse.OptionGroup(
         p, "'publish' specific options",
         "Set these options when you want to publish a release on Spark Packages.")
-    publish_options.add_option("--version", "-v", type="string", help="The version of the release")
-    publish_options.add_option(
-        "--folder", "-f", type="string",
-        help="The root folder of the package that will be prepped for release. You can either " \
-             "supply the folder to create the release artifact first, or supply the artifact " \
-             "directly with -z or --zip.")
     publish_options.add_option(
         "--zip", "-z", type="string",
         help="The zip file containing the release artifact, if it has been generated beforehand.")
-    publish_options.add_option(
-        "--user", "-u", type="string", help="Your github username. It is safer to provide this " \
-                                            "through a file using -c or --cred.")
-    publish_options.add_option(
-        "--token", "-t", type="string",
-        help="Your github personal access token with read:org authorization. It " + \
-             "is safer to provide this through a file using -c or --cred.")
-    publish_options.add_option(
-        "--cred", "-c", type="string",
-        help="A file containing your github credentials, i.e. your username and personal access " \
-             "token with read:org authorization. The format should be:" \
-             "\nuser: $USERNAME\ntoken: $TOKEN")
     p.add_option_group(publish_options)
     options, arguments = p.parse_args()
     if len(arguments) == 0:
