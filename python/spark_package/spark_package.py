@@ -17,6 +17,11 @@ import xml.etree.ElementTree as Xml
 import xml.dom.minidom as dom
 import tempfile
 import shutil
+import base64
+import requests
+import subprocess
+import StringIO
+from getpass import getpass
 from pkg_resources import resource_string
 
 # <----- zip Methods ------>
@@ -156,13 +161,16 @@ def zip_artifact(root_dir, name, version, out_dir):
     prepare_jar(root_dir, temp_artifact_name)
     prepare_pom(root_dir, name, version, temp_dir)
     pwd = os.getcwd()
-    artifact = zipfile.ZipFile(artifact_name + "zip", 'w')
+    zip_path = os.path.join(out_dir, artifact_name + "zip")
+    artifact = zipfile.ZipFile(zip_path, 'w')
     os.chdir(temp_dir)
     artifact.write(artifact_name + "pom")
     artifact.write(artifact_name + "jar")
     artifact.close()
     os.chdir(pwd)
     shutil.rmtree(temp_dir)
+    print "Zip File created at: %s" % os.path.abspath(zip_path)
+    return zip_path
 
 
 # <----- init Methods ------>
@@ -239,10 +247,7 @@ def init_empty_package(base_dir, name, scala, java, python):
     package_dir = os.path.join(base_dir, repo_name)
     if os.path.exists(package_dir):
         raise RuntimeError("Directory %s already exists" % package_dir)
-    license_id = int(raw_input(get_license_prompt()))
-    while license_id < 1 or license_id > len(licenses):
-        print "Please enter a value between 1-%d" % len(licenses)
-        license_id = int(raw_input(get_license_prompt()))
+    license_id = get_license_id()
     os.makedirs(package_dir)
     os.chdir(package_dir)
     create_license_file(license_id)
@@ -262,7 +267,98 @@ def init_empty_package(base_dir, name, scala, java, python):
             init_python_directories()
 
 
+# <----- register Methods ------>
+
+def get_description(desc_prompt):
+    desc_raw = raw_input(desc_prompt).strip()
+    if desc_raw == "":
+        show_error_and_exit("Please supply a proper description or the path to a file:\n")
+    if os.path.isfile(desc_raw):
+        with open(desc_raw) as f:
+            desc = f.read()
+        assert len(desc.strip()) > 0, "The file you submitted is empty. Please supply a " \
+                                      "description of your package:\n"
+    else:
+        desc = desc_raw
+    return desc
+
+
+def check_homepage(homepage):
+    """
+    Check if homepage exists, because users can't update a wrong link on the Spark Packages website.
+    """
+    resp = requests.get(homepage)
+    resp.raise_for_status()
+    
+
+def register_package(name, user, token):
+    homepage = "https://github.com/" + name
+    auth = base64.b64encode(user + ":" + token)
+    short_desc = get_description("Please supply a short (one line) description of your package." + \
+                                 " You may also provide a file containing the short description:\n")
+    long_desc = get_description("Please supply a long description of your package." + \
+                                 " You may also provide a file containing the long description:\n")
+    new_hpg = raw_input("Homepage of your package (%s): " % homepage)
+    if len(new_hpg.strip()) > 0:
+        homepage = new_hpg
+    check_homepage(homepage)
+    url = "http://spark-packages.org/api/submit-package"
+    params = {"name": name, 
+              "homepage": homepage, 
+              "short_description": short_desc, 
+              "description": long_desc}
+    h = {"Authorization": "Basic " + auth}
+    resp = requests.post(url, headers=h, data=params)
+    if resp.status_code == 201:
+        print "\nSUCCESS: %s" % resp.text
+    else:
+        print "\nERROR: %s" % resp.text
+
+
+# <----- publish Methods ------>
+
+def publish_release(name, user, token, folder, version, out, zip):
+    auth = base64.b64encode(user + ":" + token)
+    pwd = os.getcwd()
+    os.chdir(folder)
+    p = subprocess.Popen(["git", "rev-parse", "HEAD"], stdout=subprocess.PIPE)
+    sys_out, sys_err = p.communicate()
+    assert sys_out is not None, \
+        "Problem while accessing git commit sha. Is the folder also the local github repository?"
+    assert len(sys_out.strip()) != 0, \
+        "Problem while accessing git commit sha. Is the folder also the local github repository?"
+    git_sha1 = sys_out.strip()
+    # -1 because prompt is one based, whereas the website is zero based.
+    license_id = get_license_id() - 1
+    os.chdir(pwd)
+    if zip is None:
+        zip = zip_artifact(folder, name, version, out)
+    binary_zip = ""
+    if zip is not None:
+        with open(zip) as f:
+            binary_zip = base64.b64encode(f.read())
+    artifact_zip = StringIO.StringIO(binary_zip)
+    url = "http://spark-packages.org/api/submit-release"
+    params = {"git_commit_sha1": git_sha1,
+              "version": version,
+              "license_id": license_id,
+              "name": name}
+    f = {"artifact_zip": artifact_zip}
+    h = {"Authorization": "Basic " + auth}
+    resp = requests.post(url, headers=h, data=params, files=f)
+    if resp.status_code == 201:
+        print "\nSUCCESS: %s" % resp.text
+    else:
+        print "\nERROR: %s" % resp.text
+
 # <----- util Methods ------>
+
+def get_license_id():
+    license_id = int(raw_input(get_license_prompt()))
+    while license_id < 1 or license_id > len(licenses):
+        print "Please enter a value between 1-%d" % len(licenses)
+        license_id = int(raw_input(get_license_prompt()))
+    return license_id
 
 def get_license_file_name(root_dir):
     files = os.listdir(root_dir)
@@ -287,8 +383,10 @@ It is required that this name be the name of the
 github repository of this package."""
 
 
-# Makes sure that the package name doesn't contain any characters outside of letters and numbers
 def validate_name(name, p=None):
+    """
+    Makes sure that the package name doesn't contain any characters outside of letters and numbers
+    """
     if name is None or len(name.strip()) == 0:
         show_error_and_exit("Please specify the name of the package using -n or --name." +
                             name_template, p)
@@ -362,6 +460,47 @@ def pom_add_element(root, prefix, parent, child, values, comparison_keys, key_or
         for key, value in sorted(values.items(), key=lambda i:key_order.index(i[0])):
             pom_add_or_modify_tag(dep, prefix + key, value)
         dependencies.append(dep)
+        
+        
+def read_credentials_file(file):
+    user = ""
+    token = ""
+    with open(file, 'r') as f:
+        content = [x.strip('\n') for x in f.readlines()]
+        for line in content:
+            if 'user=' in line:
+                str_line = line.strip()
+                user = str_line[len('user='):].strip()
+            elif 'password=' in line:
+                str_line = line.strip()
+                token = str_line[len('password='):].strip()
+    if user == "":
+        show_error_and_exit("Could not resolve github username from the file: %s. Please make " \
+                            "sure that it's supplied in its own line as,\nuser= $USERNAME" % file)
+    if token == "":
+        show_error_and_exit("Could not resolve github token from the file: %s. Please make " \
+                            "sure that it's supplied in its own line as,\npassword= $TOKEN" % file)
+    return user, token
+        
+        
+def resolve_credentials(user, token, file):
+    if file is not None:
+        if os.path.isfile(file):
+            return read_credentials_file(file)
+    if user is None or len(user.strip()) == 0:
+        git_user = raw_input("Please enter your Github username: ").strip()
+    else:
+        git_user = user
+    if git_user == "":
+        show_error_and_exit("Empty username provided!")
+    if token is None or len(token.strip()) == 0:
+        git_token = getpass("Please enter your Github Personal access token with read:org " + \
+                            "permissions: ").strip()
+    else:
+        git_token = token
+    if git_token == "":
+        show_error_and_exit("Empty token provided!")
+    return git_user, git_token
 
 
 def create_static_file(file, permission=None, replacements=None):
@@ -381,16 +520,27 @@ def create_static_file(file, permission=None, replacements=None):
     f.close()
     if permission is not None:
         os.chmod(file, permission)
+        
+
+def check_path_exists(option):
+    if option is None or len(option.strip()) == 0 or not os.path.isdir(option):
+        return False
+    return True
+
 
 # <----- Main ------>
 
 def main():
     # Set up and parse command line options
-    usage = "usage: %prog <init|zip> [options]"
+    usage = "usage: %prog <init|zip|register|publish> [options]"
     p = optparse.OptionParser(usage=usage)
     p.add_option("--out", "-o", type="string", default=".", help="The output directory for the "
                                                                  "package")
     p.add_option("--name", "-n", type="string", help="The name of the package. " + name_template)
+    p.add_option("--version", "-v", type="string", help="The version of the release, when using " +\
+                 "zip or publish.")
+    p.add_option("--folder", "-f", type="string",
+                 help="The root folder of the package that will be prepped for release")
     # Options for init
     init_options = optparse.OptionGroup(
         p, "'init' specific options", "Use these options when you want to set up an empty project "
@@ -408,33 +558,70 @@ def main():
         help="Include this if your package uses/will use scala code in addition to java "
              "and/or python")
     p.add_option_group(init_options)
-    # Options for zip
-    zip_options = optparse.OptionGroup(
-        p, "'zip' specific options",
-        "Set these options when you want to create a release artifact.")
-    zip_options.add_option(
-        "--folder", "-f", type="string",
-        help="The root folder of the package that will be prepped for release")
-    zip_options.add_option("--version", "-v", type="string", help="The version of the release")
-    p.add_option_group(zip_options)
+    # Credentials for register and publish
+    credentials_options = optparse.OptionGroup(
+        p, "credentials",
+        "Set these options when you want to register your package or publish a release on " + \
+        "Spark Packages. If credentials are not supplied beforehand, you will be prompted to " + \
+        "enter them.")
+    credentials_options.add_option(
+        "--user", "-u", type="string", help="Your github username. It is safer to provide this " \
+                                            "through a file using -c or --cred.")
+    credentials_options.add_option(
+        "--token", "-t", type="string", 
+        help="Your github personal access token with read:org authorization. It " + \
+        "is safer to provide this through a file using -c or --cred.")
+    credentials_options.add_option(
+        "--cred", "-c", type="string",
+        help="A file containing your github credentials, i.e. your username and personal access " \
+             "token with read:org authorization. The format should be:" \
+             "\nuser= $USERNAME\npassword= $TOKEN")
+    p.add_option_group(credentials_options)
+    # Register options
+    register_options = optparse.OptionGroup(
+        p, "register",
+        "Register your package on Spark Packages. Requires that your package exist as a Github " + \
+        "repository. If credentials are not supplied through command line arguments, you will be " + \
+        "asked to enter them. Example usage: spark-package register -n $PACKAGE_NAME -c $CREDS_FILE.")
+    p.add_option_group(register_options)
+    # Options for publish
+    publish_options = optparse.OptionGroup(
+        p, "'publish' specific options",
+        "Set these options when you want to publish a release on Spark Packages. Example " + \
+        "usage: spark-package publish -c $CREDS_FILE -n $PACKAGE_NAME -f $PACKAGE_PATH -v $VERSION")
+    publish_options.add_option(
+        "--zip", "-z", type="string",
+        help="The zip file containing the release artifact, if it has been generated beforehand.")
+    p.add_option_group(publish_options)
     options, arguments = p.parse_args()
     if len(arguments) == 0:
-        show_error_and_exit("Please specify an action, such as 'init' or 'zip'", p)
+        show_error_and_exit("Please specify an action, such as 'init', 'zip', 'register' or " + \
+                            "'publish'", p)
     if len(arguments) > 1:
         show_error_and_exit("Unrecognized arguments", p)
+    validate_name(options.name, p)
     if arguments[0] == "init":
         if not options.scala and not options.java and not options.python:
             options.scala = True
-        validate_name(options.name, p)
         init_empty_package(options.out, options.name, options.scala, options.java, options.python)
     elif arguments[0] == "zip":
-        if options.folder is None or len(options.folder.strip()) == 0 \
-                or not os.path.isdir(options.folder):
+        if not check_path_exists(options.folder):
             show_error_and_exit("Please specify the folder of the spark package", p)
         if options.version is None or len(options.version.strip()) == 0:
             show_error_and_exit("Please specify a version for the release", p)
-        validate_name(options.name, p)
         zip_artifact(options.folder, options.name, options.version, options.out)
+    elif arguments[0] == "register":
+        user, token = resolve_credentials(options.user, options.token, options.cred)
+        register_package(options.name, user, token)
+    elif arguments[0] == "publish":
+        user, token = resolve_credentials(options.user, options.token, options.cred)
+        if not check_path_exists(options.folder) and not check_path_exists(options.zip):
+            show_error_and_exit("Please specify the folder of the spark package or the path " + \
+                                "to the zip file.", p)
+        if options.version is None or len(options.version.strip()) == 0:
+            show_error_and_exit("Please specify a version for the release", p)
+        publish_release(options.name, user, token, options.folder,
+                        options.version, options.out, options.zip)
     else:
         show_error_and_exit("Unrecognized argument %s" % arguments[0])
 
