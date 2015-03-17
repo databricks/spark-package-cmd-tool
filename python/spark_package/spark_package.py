@@ -283,6 +283,14 @@ def get_description(desc_prompt):
     return desc
 
 
+def check_homepage(homepage):
+    """
+    Check if homepage exists, because users can't update a wrong link on the Spark Packages website.
+    """
+    resp = requests.get(homepage)
+    resp.raise_for_status()
+    
+
 def register_package(name, user, token):
     homepage = "https://github.com/" + name
     auth = base64.b64encode(user + ":" + token)
@@ -290,8 +298,11 @@ def register_package(name, user, token):
                                  " You may also provide a file containing the short description:\n")
     long_desc = get_description("Please supply a long description of your package." + \
                                  " You may also provide a file containing the long description:\n")
-    
-    url = "http://localhost:4444/api/submit-package"
+    new_hpg = raw_input("Homepage of your package (%s): " % homepage)
+    if len(new_hpg.strip()) > 0:
+        homepage = new_hpg
+    check_homepage(homepage)
+    url = "http://spark-packages.org/api/submit-package"
     params = {"name": name, 
               "homepage": homepage, 
               "short_description": short_desc, 
@@ -327,7 +338,7 @@ def publish_release(name, user, token, folder, version, out, zip):
         with open(zip) as f:
             binary_zip = base64.b64encode(f.read())
     artifact_zip = StringIO.StringIO(binary_zip)
-    url = "http://localhost:4444/api/submit-release"
+    url = "http://spark-packages.org/api/submit-release"
     params = {"git_commit_sha1": git_sha1,
               "version": version,
               "license_id": license_id,
@@ -509,6 +520,13 @@ def create_static_file(file, permission=None, replacements=None):
     f.close()
     if permission is not None:
         os.chmod(file, permission)
+        
+
+def check_path_exists(option):
+    if option is None or len(option.strip()) == 0 or not os.path.isdir(option):
+        return False
+    return True
+
 
 # <----- Main ------>
 
@@ -541,28 +559,36 @@ def main():
              "and/or python")
     p.add_option_group(init_options)
     # Credentials for register and publish
-    register_options = optparse.OptionGroup(
+    credentials_options = optparse.OptionGroup(
         p, "credentials",
         "Set these options when you want to register your package or publish a release on " + \
         "Spark Packages. If credentials are not supplied beforehand, you will be prompted to " + \
         "enter them.")
-    register_options.add_option(
+    credentials_options.add_option(
         "--user", "-u", type="string", help="Your github username. It is safer to provide this " \
                                             "through a file using -c or --cred.")
-    register_options.add_option(
+    credentials_options.add_option(
         "--token", "-t", type="string", 
         help="Your github personal access token with read:org authorization. It " + \
         "is safer to provide this through a file using -c or --cred.")
-    register_options.add_option(
+    credentials_options.add_option(
         "--cred", "-c", type="string",
         help="A file containing your github credentials, i.e. your username and personal access " \
              "token with read:org authorization. The format should be:" \
-             "\nuser: $USERNAME\ntoken: $TOKEN")
+             "\nuser= $USERNAME\npassword= $TOKEN")
+    p.add_option_group(credentials_options)
+    # Register options
+    register_options = optparse.OptionGroup(
+        p, "register",
+        "Register your package on Spark Packages. Requires that your package exist as a Github " + \
+        "repository. If credentials are not supplied through command line arguments, you will be " + \
+        "asked to enter them. Example usage: spark-package register -n $PACKAGE_NAME -c $CREDS_FILE.")
     p.add_option_group(register_options)
     # Options for publish
     publish_options = optparse.OptionGroup(
         p, "'publish' specific options",
-        "Set these options when you want to publish a release on Spark Packages.")
+        "Set these options when you want to publish a release on Spark Packages. Example " + \
+        "usage: spark-package publish -c $CREDS_FILE -n $PACKAGE_NAME -f $PACKAGE_PATH -v $VERSION")
     publish_options.add_option(
         "--zip", "-z", type="string",
         help="The zip file containing the release artifact, if it has been generated beforehand.")
@@ -579,8 +605,7 @@ def main():
             options.scala = True
         init_empty_package(options.out, options.name, options.scala, options.java, options.python)
     elif arguments[0] == "zip":
-        if options.folder is None or len(options.folder.strip()) == 0 \
-                or not os.path.isdir(options.folder):
+        if not check_path_exists(options.folder):
             show_error_and_exit("Please specify the folder of the spark package", p)
         if options.version is None or len(options.version.strip()) == 0:
             show_error_and_exit("Please specify a version for the release", p)
@@ -590,9 +615,9 @@ def main():
         register_package(options.name, user, token)
     elif arguments[0] == "publish":
         user, token = resolve_credentials(options.user, options.token, options.cred)
-        if options.folder is None or len(options.folder.strip()) == 0 \
-                or not os.path.isdir(options.folder):
-            show_error_and_exit("Please specify the folder of the spark package", p)
+        if not check_path_exists(options.folder) and not check_path_exists(options.zip):
+            show_error_and_exit("Please specify the folder of the spark package or the path " + \
+                                "to the zip file.", p)
         if options.version is None or len(options.version.strip()) == 0:
             show_error_and_exit("Please specify a version for the release", p)
         publish_release(options.name, user, token, options.folder,
