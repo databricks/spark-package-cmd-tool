@@ -338,7 +338,7 @@ def publish_release(name, user, token, folder, version, out, zip):
         with open(zip) as f:
             binary_zip = base64.b64encode(f.read())
     artifact_zip = StringIO.StringIO(binary_zip)
-    url = "http://spark-packages.org/api/submit-release"
+    url = "http://spark-packages.org/api/submit-release" 
     params = {"git_commit_sha1": git_sha1,
               "version": version,
               "license_id": license_id,
