@@ -32,7 +32,9 @@ by selecting the value for `other license (decide later)`.
 
 A name must be supplied with the flag `-n` or `--name`. The name must match the name of the github 
 repository of the package. The layout for python can be generated with the flag `-p` or `--python`, 
-scala can be generated with `-s` or `--scala` and java folders can be generated with `-j` or `--java`.
+directories can be generated for R using `--R` or `-r`,  scala can be generated with `-s` or `--scala` 
+and java folders can be generated with `-j` or `--java`.
+
 An output directory for the package can be supplied with `-o` or `--out`. The default for the output
 path is the current working directory.
 Example usage:
