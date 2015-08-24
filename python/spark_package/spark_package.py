@@ -8,6 +8,7 @@ Spark Packages. Major functionalities provided by this tool:
     jar of this package. A package jar must exist in the directory of the spark package
 """
 
+import datetime
 import optparse
 import os
 import re
@@ -200,7 +201,7 @@ def create_license_file(license_id):
     if license_id == len(licenses):
         res_file = resource_string('spark_package.resources', 'LICENSE')
     else:
-        res_file = resource_string('spark_package.resources.license_temps', 
+        res_file = resource_string('spark_package.resources.license_temps',
                                    licenses[license_id - 1][0])
     f = open(file, 'w')
     f.write(res_file)
@@ -212,19 +213,24 @@ def init_src_directories(suffix):
     os.makedirs(os.path.join("src", "test", suffix))
 
 
-def init_sbt_directories(name, license_id):
-    os.makedirs("project")
-    build_replacements = [("$$packageName$$", name)]
+def get_license_replacement(license_id, just_name=False):
     if license_id != len(licenses):
         license_name, license_url = licenses[license_id - 1]
-        build_replacements.append(("$$license$$", 
-                                   "licenses := Seq(\"%s\" -> url(\"%s\"))\n" % (license_name,
-                                                                                  license_url)))
+        if just_name:
+            return "$$license$$", license_name
+        return ("$$license$$",
+                "licenses := Seq(\"%s\" -> url(\"%s\"))\n" % (license_name, license_url))
     else:
-        build_replacements.append(("$$license$$",
-                                   "// format: licenses := Seq($LICENSE_NAME -> $LICENSE_URL)"))
+        if just_name:
+            return "$$license$$", "Please specify a license"
+        return "$$license$$", "// format: licenses := Seq($LICENSE_NAME -> $LICENSE_URL)"
+
+
+
+def init_sbt_directories(name, license_id):
+    os.makedirs("project")
+    build_replacements = [("$$packageName$$", name), get_license_replacement(license_id)]
     create_static_file("build.sbt", replacements=build_replacements)
-        
     create_static_file(os.path.join("project", "build.properties"))
     create_static_file(os.path.join("project", "plugins.sbt"))
     os.makedirs("build")
@@ -242,7 +248,22 @@ def init_python_directories():
     create_static_file(os.path.join("python", "tests.py"))
 
 
-def init_empty_package(base_dir, name, scala, java, python):
+def init_r_directories(name, license_id):
+    os.makedirs(os.path.join("R", "pkg", "R"))
+    os.makedirs(os.path.join("R", "pkg", "man"))
+    os.makedirs(os.path.join("R", "pkg", "data"))
+    os.makedirs(os.path.join("R", "pkg", "src"))
+    replacements = [("$$packageName$$", name.split("/")[1]),
+                    ("$$date$$", datetime.datetime.now().strftime("%Y-%m-%d")),
+                    get_license_replacement(license_id, just_name=True)]
+    create_static_file(os.path.join("R", "pkg", "DESCRIPTION"), replacements=replacements)
+    create_static_file(os.path.join("R", "pkg", "NAMESPACE"))
+    create_static_file(os.path.join("R", "pkg", "man", "documentation.Rd"),
+                       replacements=replacements)
+    create_static_file(os.path.join("R", "pkg", "Read-and-delete-me"))
+
+
+def init_empty_package(base_dir, name, scala, java, python, r):
     repo_name = name.split("/")[1]
     package_dir = os.path.join(base_dir, repo_name)
     if os.path.exists(package_dir):
@@ -253,8 +274,11 @@ def init_empty_package(base_dir, name, scala, java, python):
     create_license_file(license_id)
     create_static_file('README.md')
     create_static_file('.gitignore')
-    if python and not scala and not java:
-        init_python_directories()
+    if not scala and not java:
+        if python:
+            init_python_directories()
+        if r:
+            init_r_directories(name, license_id)
     else:
         init_src_directories("resources")
         if java or scala:
@@ -265,6 +289,8 @@ def init_empty_package(base_dir, name, scala, java, python):
             init_src_directories("scala")
         if python:
             init_python_directories()
+        if r:
+            init_r_directories(name, license_id)
 
 
 # <----- register Methods ------>
@@ -289,7 +315,7 @@ def check_homepage(homepage):
     """
     resp = requests.get(homepage)
     resp.raise_for_status()
-    
+
 
 def register_package(name, user, token):
     homepage = "https://github.com/" + name
@@ -303,9 +329,9 @@ def register_package(name, user, token):
         homepage = new_hpg
     check_homepage(homepage)
     url = "http://spark-packages.org/api/submit-package"
-    params = {"name": name, 
-              "homepage": homepage, 
-              "short_description": short_desc, 
+    params = {"name": name,
+              "homepage": homepage,
+              "short_description": short_desc,
               "description": long_desc}
     h = {"Authorization": "Basic " + auth}
     resp = requests.post(url, headers=h, data=params)
@@ -338,7 +364,7 @@ def publish_release(name, user, token, folder, version, out, zip):
         with open(zip) as f:
             binary_zip = base64.b64encode(f.read())
     artifact_zip = StringIO.StringIO(binary_zip)
-    url = "http://spark-packages.org/api/submit-release" 
+    url = "http://spark-packages.org/api/submit-release"
     params = {"git_commit_sha1": git_sha1,
               "version": version,
               "license_id": license_id,
@@ -460,8 +486,8 @@ def pom_add_element(root, prefix, parent, child, values, comparison_keys, key_or
         for key, value in sorted(values.items(), key=lambda i:key_order.index(i[0])):
             pom_add_or_modify_tag(dep, prefix + key, value)
         dependencies.append(dep)
-        
-        
+
+
 def read_credentials_file(file):
     user = ""
     token = ""
@@ -481,8 +507,8 @@ def read_credentials_file(file):
         show_error_and_exit("Could not resolve github token from the file: %s. Please make " \
                             "sure that it's supplied in its own line as,\npassword= $TOKEN" % file)
     return user, token
-        
-        
+
+
 def resolve_credentials(user, token, file):
     if file is not None:
         if os.path.isfile(file):
@@ -520,7 +546,7 @@ def create_static_file(file, permission=None, replacements=None):
     f.close()
     if permission is not None:
         os.chmod(file, permission)
-        
+
 
 def check_path_exists(option):
     if option is None or len(option.strip()) == 0 or not os.path.isdir(option):
@@ -555,8 +581,10 @@ def main():
         help="Include this if your package uses/will use java code")
     init_options.add_option(
         "--python", "-p", action="store_true", default=False,
-        help="Include this if your package uses/will use scala code in addition to java "
-             "and/or python")
+        help="Include this if your package has/will have python code")
+    init_options.add_option(
+        "--R", "-r", action="store_true", default=False, dest="r",
+        help="Include this if your package has/will have R code")
     p.add_option_group(init_options)
     # Credentials for register and publish
     credentials_options = optparse.OptionGroup(
@@ -568,7 +596,7 @@ def main():
         "--user", "-u", type="string", help="Your github username. It is safer to provide this " \
                                             "through a file using -c or --cred.")
     credentials_options.add_option(
-        "--token", "-t", type="string", 
+        "--token", "-t", type="string",
         help="Your github personal access token with read:org authorization. It " + \
         "is safer to provide this through a file using -c or --cred.")
     credentials_options.add_option(
@@ -601,9 +629,10 @@ def main():
         show_error_and_exit("Unrecognized arguments", p)
     validate_name(options.name, p)
     if arguments[0] == "init":
-        if not options.scala and not options.java and not options.python:
+        if not options.scala and not options.java and not options.python and not options.r:
             options.scala = True
-        init_empty_package(options.out, options.name, options.scala, options.java, options.python)
+        init_empty_package(options.out, options.name,
+                           options.scala, options.java, options.python, options.r)
     elif arguments[0] == "zip":
         if not check_path_exists(options.folder):
             show_error_and_exit("Please specify the folder of the spark package", p)
