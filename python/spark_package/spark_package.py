@@ -21,7 +21,11 @@ import shutil
 import base64
 import requests
 import subprocess
-from io import StringIO
+import sys
+if sys.version_info >= (3, 0):
+    from io import StringIO
+else:
+    from StringIO import StringIO
 from getpass import getpass
 from pkg_resources import resource_string
 
@@ -363,7 +367,7 @@ def publish_release(name, user, token, folder, version, out, zip):
     if zip is not None:
         with open(zip) as f:
             binary_zip = base64.b64encode(f.read())
-    artifact_zip = StringIO.StringIO(binary_zip)
+    artifact_zip = StringIO(binary_zip)
     url = "http://spark-packages.org/api/submit-release"
     params = {"git_commit_sha1": git_sha1,
               "version": version,
