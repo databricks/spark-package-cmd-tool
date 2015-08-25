@@ -21,7 +21,7 @@ import shutil
 import base64
 import requests
 import subprocess
-import StringIO
+from io import StringIO
 from getpass import getpass
 from pkg_resources import resource_string
 
@@ -170,7 +170,7 @@ def zip_artifact(root_dir, name, version, out_dir):
     artifact.close()
     os.chdir(pwd)
     shutil.rmtree(temp_dir)
-    print "Zip File created at: %s" % os.path.abspath(zip_path)
+    print("Zip File created at: %s" % os.path.abspath(zip_path))
     return zip_path
 
 
@@ -336,9 +336,9 @@ def register_package(name, user, token):
     h = {"Authorization": "Basic " + auth}
     resp = requests.post(url, headers=h, data=params)
     if resp.status_code == 201:
-        print "\nSUCCESS: %s" % resp.text
+        print("\nSUCCESS: %s" % resp.text)
     else:
-        print "\nERROR: %s" % resp.text
+        print("\nERROR: %s" % resp.text)
 
 
 # <----- publish Methods ------>
@@ -373,16 +373,16 @@ def publish_release(name, user, token, folder, version, out, zip):
     h = {"Authorization": "Basic " + auth}
     resp = requests.post(url, headers=h, data=params, files=f)
     if resp.status_code == 201:
-        print "\nSUCCESS: %s" % resp.text
+        print("\nSUCCESS: %s" % resp.text)
     else:
-        print "\nERROR: %s" % resp.text
+        print("\nERROR: %s" % resp.text)
 
 # <----- util Methods ------>
 
 def get_license_id():
     license_id = int(raw_input(get_license_prompt()))
     while license_id < 1 or license_id > len(licenses):
-        print "Please enter a value between 1-%d" % len(licenses)
+        print("Please enter a value between 1-%d" % len(licenses))
         license_id = int(raw_input(get_license_prompt()))
     return license_id
 
@@ -398,7 +398,7 @@ def get_license_file_name(root_dir):
 
 
 def show_error_and_exit(msg, parser=None):
-    print msg
+    print(msg)
     if parser is not None:
         parser.print_help()
     exit(-1)
