@@ -208,6 +208,7 @@ def create_license_file(license_id):
     else:
         res_file = resource_string('spark_package.resources.license_temps',
                                    licenses[license_id - 1][0])
+    res_file = res_file.decode("utf-8")
     f = open(file, 'w')
     f.write(res_file)
     f.close()
@@ -544,6 +545,7 @@ def create_static_file(file, permission=None, replacements=None):
     else:
         file_name = file
     res_file = resource_string('spark_package.resources', file_name)
+    res_file = res_file.decode("utf-8")
     if replacements is not None:
         for placeholder, value in replacements:
             res_file = res_file.replace(placeholder, value)
