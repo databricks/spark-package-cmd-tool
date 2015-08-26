@@ -26,6 +26,7 @@ if sys.version_info >= (3, 0):
     from io import StringIO
 else:
     from StringIO import StringIO
+from builtins import input
 from getpass import getpass
 from pkg_resources import resource_string
 
@@ -300,7 +301,7 @@ def init_empty_package(base_dir, name, scala, java, python, r):
 # <----- register Methods ------>
 
 def get_description(desc_prompt):
-    desc_raw = raw_input(desc_prompt).strip()
+    desc_raw = input(desc_prompt).strip()
     if desc_raw == "":
         show_error_and_exit("Please supply a proper description or the path to a file:\n")
     if os.path.isfile(desc_raw):
@@ -328,7 +329,7 @@ def register_package(name, user, token):
                                  " You may also provide a file containing the short description:\n")
     long_desc = get_description("Please supply a long description of your package." + \
                                  " You may also provide a file containing the long description:\n")
-    new_hpg = raw_input("Homepage of your package (%s): " % homepage)
+    new_hpg = input("Homepage of your package (%s): " % homepage)
     if len(new_hpg.strip()) > 0:
         homepage = new_hpg
     check_homepage(homepage)
@@ -384,10 +385,10 @@ def publish_release(name, user, token, folder, version, out, zip):
 # <----- util Methods ------>
 
 def get_license_id():
-    license_id = int(raw_input(get_license_prompt()))
+    license_id = int(input(get_license_prompt()))
     while license_id < 1 or license_id > len(licenses):
         print("Please enter a value between 1-%d" % len(licenses))
-        license_id = int(raw_input(get_license_prompt()))
+        license_id = int(input(get_license_prompt()))
     return license_id
 
 def get_license_file_name(root_dir):
@@ -519,7 +520,7 @@ def resolve_credentials(user, token, file):
         if os.path.isfile(file):
             return read_credentials_file(file)
     if user is None or len(user.strip()) == 0:
-        git_user = raw_input("Please enter your Github username: ").strip()
+        git_user = input("Please enter your Github username: ").strip()
     else:
         git_user = user
     if git_user == "":
