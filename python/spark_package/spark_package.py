@@ -325,7 +325,7 @@ def check_homepage(homepage):
 
 def register_package(name, user, token):
     homepage = "https://github.com/" + name
-    auth = base64.b64encode(user + ":" + token)
+    auth = base64.b64encode((user + ":" + token).encode())
     short_desc = get_description("Please supply a short (one line) description of your package." + \
                                  " You may also provide a file containing the short description:\n")
     long_desc = get_description("Please supply a long description of your package." + \
@@ -339,7 +339,7 @@ def register_package(name, user, token):
               "homepage": homepage,
               "short_description": short_desc,
               "description": long_desc}
-    h = {"Authorization": "Basic " + auth}
+    h = {"Authorization": "Basic " + auth.decode("utf-8")}
     resp = requests.post(url, headers=h, data=params)
     if resp.status_code == 201:
         print("\nSUCCESS: %s" % resp.text)
@@ -350,7 +350,7 @@ def register_package(name, user, token):
 # <----- publish Methods ------>
 
 def publish_release(name, user, token, folder, version, out, zip):
-    auth = base64.b64encode(user + ":" + token)
+    auth = base64.b64encode((user + ":" + token).encode())
     pwd = os.getcwd()
     os.chdir(folder)
     p = subprocess.Popen(["git", "rev-parse", "HEAD"], stdout=subprocess.PIPE)
