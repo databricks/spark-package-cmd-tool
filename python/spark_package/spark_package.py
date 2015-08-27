@@ -367,7 +367,7 @@ def publish_release(name, user, token, folder, version, out, zip):
         zip = zip_artifact(folder, name, version, out)
     binary_zip = ""
     if zip is not None:
-        with open(zip) as f:
+        with open(zip, 'rb') as f:
             binary_zip = base64.b64encode(f.read())
     artifact_zip = StringIO(binary_zip)
     url = "http://spark-packages.org/api/submit-release"
