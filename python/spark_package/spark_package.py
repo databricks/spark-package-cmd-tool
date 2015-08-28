@@ -369,14 +369,15 @@ def publish_release(name, user, token, folder, version, out, zip):
     if zip is not None:
         with open(zip, 'rb') as f:
             binary_zip = base64.b64encode(f.read())
-    artifact_zip = StringIO(binary_zip)
+    artifact_zip = StringIO()
+    artifact_zip.write(binary_zip.decode("utf-8"))
     url = "http://spark-packages.org/api/submit-release"
     params = {"git_commit_sha1": git_sha1,
               "version": version,
               "license_id": license_id,
               "name": name}
     f = {"artifact_zip": artifact_zip}
-    h = {"Authorization": "Basic " + auth}
+    h = {"Authorization": "Basic " + auth.decode("utf-8")}
     resp = requests.post(url, headers=h, data=params, files=f)
     if resp.status_code == 201:
         print("\nSUCCESS: %s" % resp.text)
