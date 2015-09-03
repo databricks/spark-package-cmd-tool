@@ -1,4 +1,4 @@
-spark-package Command Line Tool
+spark-package Command Line Tool [![Build Status](https://travis-ci.org/databricks/spark-package-cmd-tool.svg)](http://travis-ci.org/databricks/spark-package-cmd-tool)
 ===============================
 
 Command Line Tool for working with `Spark Packages`.
