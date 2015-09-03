@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+THIS_DIR=$(cd "$(dirname "$0")"; pwd)
+
+python $THIS_DIR/../python/tests.py

@@ -2,6 +2,9 @@
 *.log
 *.pyc
 sbt/*.jar
+*.egg-info
+python/build
+python/dist
 
 # sbt specific
 .cache/
