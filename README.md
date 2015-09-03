@@ -1,4 +1,4 @@
-spark-package Command Line Tool
+spark-package Command Line Tool 
 ===============================
 
 Command Line Tool for working with `Spark Packages`.
