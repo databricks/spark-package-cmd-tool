@@ -19,6 +19,13 @@ def run_cmd(cmd):
                             stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
+def communicate(p, val):
+    if sys.version_info >= (3, 0):
+        p.communicate(val.encode())
+    else:
+        p.communicate(val)
+
+
 def check_sbt_files(test, temp_dir, name, exists=True):
     base_name = name.split("/")[1]
     if exists:
@@ -105,6 +112,11 @@ def clean_dir(test, dir):
     test.assertFalse(isdir(dir))
 
 
+def check_exception(test, expect, p):
+    out, _ = p.communicate()
+    test.assertTrue(expect in out.decode('utf-8'))
+
+
 def get_licenses():
     first_lines = [
         "Apache License, Version 2.0",
@@ -126,23 +138,15 @@ class TestCommandLineToolInit(unittest.TestCase):
 
     def test_simple(self):
         p = run_cmd(["init"])
-        self.assertTrue(
-            "Please specify the name of the package using -n or --name." in p.stdout.read())
-        p.kill()
+        check_exception(self, "Please specify the name of the package using -n or --name.", p)
 
     def test_bad_name(self):
         p = run_cmd(["init", "-n", "noslash"])
-        self.assertTrue(
-            "The name of the package must contain exactly one slash." in p.stdout.read())
-        p.kill()
+        check_exception(self, "The name of the package must contain exactly one slash.", p)
         p = run_cmd(["init", "-n", "abc/03/doubleslash"])
-        self.assertTrue(
-            "The name of the package must contain exactly one slash." in p.stdout.read())
-        p.kill()
+        check_exception(self, "The name of the package must contain exactly one slash.", p)
         p = run_cmd(["init", "-n", "w3!rd/ch@rs"])
-        self.assertTrue(
-            "The name of the package can only contain letters, numbers, dashes" in p.stdout.read())
-        p.kill()
+        check_exception(self, "The name of the package can only contain letters, numbers,", p)
 
     def test_matrix(self):
         has_lang_opts = [True, False]
@@ -165,7 +169,7 @@ class TestCommandLineToolInit(unittest.TestCase):
                         if not has_java and not has_scala and not has_python and not has_r:
                             has_scala = True
                         p = run_cmd(["init", "-n", name, "-o", temp_dir] + langs)
-                        p.communicate("1")
+                        communicate(p, "1")
                         self.assertTrue(p.returncode == 0)
                         check_scala_files(self, temp_dir, name, exists=has_scala)
                         check_base_files(self, temp_dir, name)
@@ -182,7 +186,7 @@ class TestCommandLineToolInit(unittest.TestCase):
             temp_dir = tempfile.mkdtemp()
             name = "license-%s" % i
             p = run_cmd(["init", "-n", "test/" + name, "-o", temp_dir])
-            p.communicate(repr(i))
+            communicate(p, str(i))
             check_base_files(self, temp_dir, "test/" + name)
             if i != len(licenses):
                 with open(join(temp_dir, name, "build.sbt"), "r") as f:
@@ -285,34 +289,22 @@ class TestCommandLineToolZip(unittest.TestCase):
         temp_dir = tempfile.mkdtemp()
         name = "test/zip-test"
         p = run_cmd(["init", "-n", name, "-o", temp_dir])
-        p.communicate("1")
+        communicate(p, "1")
         p = run_cmd(["zip"])
-        self.assertTrue(
-            "Please specify the name of the package using -n or --name" in p.stdout.read())
-        p.kill()
+        check_exception(self, "Please specify the name of the package using -n or --name", p)
         p = run_cmd(["zip", "-n", name])
-        self.assertTrue(
-            "Please specify the folder of the spark package" in p.stdout.read())
-        p.kill()
+        check_exception(self, "Please specify the folder of the spark package", p)
         p = run_cmd(["zip", "-n", name, "-f", join(temp_dir, "zip-test")])
-        self.assertTrue(
-            "Please specify a version for the release" in p.stdout.read())
-        p.kill()
+        check_exception(self, "Please specify a version for the release", p)
         clean_dir(self, temp_dir)
 
     def test_zip_bad_names(self):
         p = run_cmd(["zip", "-n", "noslash"])
-        self.assertTrue(
-            "The name of the package must contain exactly one slash." in p.stdout.read())
-        p.kill()
+        check_exception(self, "The name of the package must contain exactly one slash.", p)
         p = run_cmd(["zip", "-n", "abc/03/doubleslash"])
-        self.assertTrue(
-            "The name of the package must contain exactly one slash." in p.stdout.read())
-        p.kill()
+        check_exception(self, "The name of the package must contain exactly one slash.", p)
         p = run_cmd(["zip", "-n", "w3!rd/ch@rs"])
-        self.assertTrue(
-            "The name of the package can only contain letters, numbers, dashes" in p.stdout.read())
-        p.kill()
+        check_exception(self, "The name of the package can only contain letters, numbers,", p)
 
     def test_zip_proper(self):
         temp_dir = tempfile.mkdtemp()
@@ -320,7 +312,7 @@ class TestCommandLineToolZip(unittest.TestCase):
         base_name = "zip-test"
         name = org_name + "/" + base_name
         p = run_cmd(["init", "-n", name, "-o", temp_dir, "-p"])
-        p.communicate("1")
+        communicate(p, "1")
         version = "0.2"
         p = run_cmd(["zip", "-n", name, "-o", temp_dir, "-v", version,
                      "-f", join(temp_dir, base_name)])
@@ -335,7 +327,7 @@ class TestCommandLineToolZip(unittest.TestCase):
         base_name = "zip-test"
         name = org_name + "/" + base_name
         p = run_cmd(["init", "-n", name, "-o", temp_dir, "-p", "-s"])
-        p.communicate("1")
+        communicate(p, "1")
         version = "0.2"
         test1 = join(temp_dir, "test.class")
         test2 = join(temp_dir, "test2.class")
@@ -358,19 +350,18 @@ class TestCommandLineToolZip(unittest.TestCase):
         base_name = "zip-test"
         name = org_name + "/" + base_name
         p = run_cmd(["init", "-n", name, "-o", temp_dir, "-p"])
-        p.communicate("1")
+        communicate(p, "1")
         version = "0.2"
         deps_file = join(temp_dir, base_name, "python", "spark-package-deps.txt")
         write_file(deps_file, """wrong/format\n""")
         p = run_cmd(["zip", "-n", name, "-o", temp_dir, "-v", version,
                      "-f", join(temp_dir, base_name)])
-        self.assertTrue(":package_name==:version` in spark-package-deps.txt" in p.stdout.read())
-        p.kill()
+        check_exception(self, ":package_name==:version` in spark-package-deps.txt", p)
         write_file(deps_file, """wrong:format==2\n""")
         p = run_cmd(["zip", "-n", name, "-o", temp_dir, "-v", version,
                      "-f", join(temp_dir, base_name)])
-        self.assertTrue("supplied as: `:repo_owner_name/:repo_name` in" in p.stdout.read())
-        p.kill()
+        check_exception(self, "supplied as: `:repo_owner_name/:repo_name` in", p)
+
         write_file(deps_file, """right/format==3\n""")
         p = run_cmd(["zip", "-n", name, "-o", temp_dir, "-v", version,
                      "-f", join(temp_dir, base_name)])
@@ -379,7 +370,6 @@ class TestCommandLineToolZip(unittest.TestCase):
         check_zip(self, temp_dir, org_name, base_name, version,
                   files=jar_contents, dependencies=[("right", "format", "3")])
         clean_dir(self, temp_dir)
-
 
 
 if __name__ == '__main__':
