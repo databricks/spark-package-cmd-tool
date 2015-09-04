@@ -16,14 +16,14 @@ import zipfile
 
 def run_cmd(cmd):
     return subprocess.Popen(["spark-package"] + cmd, stdout=subprocess.PIPE,
-                            stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+                            stdin=subprocess.PIPE, stderr=subprocess.PIPE, close_fds = True)
 
 
 def communicate(p, val):
     if sys.version_info >= (3, 0):
-        p.communicate(val.encode())
+        return p.communicate(val.encode())
     else:
-        p.communicate(val)
+        return p.communicate(val)
 
 
 def check_sbt_files(test, temp_dir, name, exists=True):
