@@ -26,10 +26,11 @@ def spawn(cmd):
 def input_and_expect(p, vals):
     for prompt, input in vals:
         if sys.version_info >= (3, 0):
-            p.expect(re.compile(prompt.encode('utf-8')))
-        else:
             p.expect(re.compile(prompt))
-        p.sendline(input)
+        else:
+            p.expect(re.compile(prompt.decode('utf-8')))
+        if input:
+            p.sendline(input)
 
 
 def communicate(p, val):
@@ -332,15 +333,11 @@ class TestCommandLineToolZip(unittest.TestCase):
         name = org_name + "/" + base_name
         p = run_cmd(["init", "-n", name, "-o", temp_dir, "-p"])
         out, err = communicate(p, "1")
-        print(out)
-        print(err)
         version = "0.2"
         p = run_cmd(["zip", "-n", name, "-o", temp_dir, "-v", version,
                      "-f", join(temp_dir, base_name)])
         # p.wait()
         out, err = p.communicate()
-        print(out)
-        print(err)
         jar_contents = ["setup.pyc", "requirements.txt", "tests.pyc"]
         check_zip(self, temp_dir, org_name, base_name, version, files=jar_contents, dependencies=[])
         clean_dir(self, temp_dir)
@@ -405,9 +402,9 @@ class TestCommandLineToolRegister(unittest.TestCase):
     def test_ask_git_creds(self):
         p = spawn(["register", "-n", "test/register"])
         input_and_expect(p, [
-            ("Please enter your Github username.*", "git-user"),
-            ("Github Personal access token with read\:org.*", "git-password")])
-        p.expect(re.compile("Please supply a short \(one line\) description of.*"))
+            (b"Please enter your Github username.*", "git-user"),
+            (b"Github Personal access token with read\:org.*", "git-password"),
+            (b"Please supply a short \(one line\) description of.*", None)])
         p.kill(0)
 
     @responses.activate
