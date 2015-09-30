@@ -274,7 +274,6 @@ def init_empty_package(base_dir, name, scala, java, python, r):
     if os.path.exists(package_dir):
         raise RuntimeError("Directory %s already exists" % package_dir)
     license_id = get_license_id()
-    print license_id
     os.makedirs(package_dir)
     os.chdir(package_dir)
     create_license_file(license_id)
