@@ -278,9 +278,7 @@ def init_empty_package(base_dir, name, scala, java, python, r):
     os.chdir(package_dir)
     create_license_file(license_id)
     create_static_file('README.md')
-    print "created README"
     create_static_file('.gitignore')
-    print "created gitignore"
     if not scala and not java:
         if python:
             init_python_directories()
@@ -320,9 +318,7 @@ def check_homepage(homepage):
     """
     Check if homepage exists, because users can't update a wrong link on the Spark Packages website.
     """
-    print homepage
     resp = requests.get(homepage)
-    print resp
     resp.raise_for_status()
 
 
