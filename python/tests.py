@@ -242,7 +242,8 @@ def check_jar(test, jar, files):
     Check the contents of the pom. Make sure the groupId, artifactId, and version are properly set.
     :param files: List of entries expected in the jar
     """
-    jar_file = zipfile.PyZipFile(StringIO(str(jar.read())), 'r')
+
+    jar_file = zipfile.PyZipFile(jar, 'r')
     entries = jar_file.namelist()
     for expected in files:
         test.assertTrue(expected in entries)
