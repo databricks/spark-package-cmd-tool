@@ -76,13 +76,9 @@ def check_scala_files(test, temp_dir, name, exists=True):
 
 def check_base_files(test, temp_dir, name):
     base_name = name.split("/")[1]
-    print "checking base files"
     test.assertTrue(isfile(join(temp_dir, base_name, "LICENSE")))
-    print "found LICENSE"
     test.assertTrue(isfile(join(temp_dir, base_name, "README.md")))
-    print "found README"
     test.assertTrue(isfile(join(temp_dir, base_name, ".gitignore")))
-    print "found ignore"
 
 
 def check_python_files(test, temp_dir, name, exists=True):
@@ -211,8 +207,8 @@ class TestCommandLineToolInit(unittest.TestCase):
             print "license-%s" % i
             p = run_cmd(["init", "-n", "test/" + name, "-o", temp_dir])
             out, err = communicate(p, str(i))
-            print out
-            print err
+            print(out)
+            print(err)
             check_base_files(self, temp_dir, "test/" + name)
             if i != len(licenses):
                 with open(join(temp_dir, name, "build.sbt"), "r") as f:
