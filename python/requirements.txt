@@ -1,2 +1,6 @@
 # This file should list any python package dependencies.
 requests
+responses
+mock==1.0.1
+pexpect
+future

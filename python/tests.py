@@ -1,9 +1,7 @@
-import json
-import os
 from os.path import join,isfile,isdir
 import re
 import shutil
-from spark_package.spark_package import licenses, prepare_pom
+from spark_package.spark_package import licenses,register_package_http,check_homepage
 import sys
 if sys.version_info >= (3, 0):
     from io import StringIO
@@ -13,13 +11,36 @@ import subprocess
 import tempfile
 import unittest
 import zipfile
+import responses
+import pexpect
 
 def run_cmd(cmd):
     return subprocess.Popen(["spark-package"] + cmd, stdout=subprocess.PIPE,
                             stdin=subprocess.PIPE, stderr=subprocess.PIPE, close_fds = True)
 
 
+def spawn(cmd):
+    return pexpect.spawn(" ".join(["spark-package"] + cmd))
+
+
+def input_and_expect(p, vals):
+    for prompt, input in vals:
+        if sys.version_info >= (3, 0):
+            p.expect(re.compile(prompt))
+        else:
+            p.expect(re.compile(prompt.decode('utf-8')))
+        if input:
+            p.sendline(input)
+
+
 def communicate(p, val):
+    if type(val) is list:
+        # stdo = [p.stdout.readline().decode("utf-8")]
+        for input in val:
+            p.stdin.write(input)
+            p.stdin.flush()
+            # stdo.append(p.stdout.readline().decode("utf-8"))
+        return p.communicate()
     if sys.version_info >= (3, 0):
         return p.communicate(val.encode())
     else:
@@ -207,7 +228,7 @@ def check_pom(test, pom, org_name, artifact_name, version, dependencies):
     :param version: version of release
     :param dependencies: List of dependencies expected in the pom
     """
-    contents = pom.read()
+    contents = pom.read().decode('utf-8')
     def gen_coordinate_regex(org, artifact, v):
         regex = """<groupId>\\s*%s\\s*<\\/groupId>\\s*""" % org
         regex += """<artifactId>\\s*%s\\s*<\\/artifactId>\\s*""" % artifact
@@ -225,12 +246,11 @@ def check_jar(test, jar, files):
     Check the contents of the pom. Make sure the groupId, artifactId, and version are properly set.
     :param files: List of entries expected in the jar
     """
-    jar_file = zipfile.PyZipFile(StringIO(jar.read()), 'r')
+    jar_file = zipfile.PyZipFile(jar, 'r')
     entries = jar_file.namelist()
     for expected in files:
         test.assertTrue(expected in entries)
     jar_file.close()
-    jar.close()
 
 
 def check_zip(test, temp_dir, org_name, artifact_name, version, files, dependencies):
@@ -250,7 +270,7 @@ def check_zip(test, temp_dir, org_name, artifact_name, version, files, dependenc
         entries = myzip.namelist()
         test.assertTrue(artifact_format + ".pom" in entries)
         test.assertTrue(artifact_format + ".jar" in entries)
-        check_jar(test, myzip.open(artifact_format + ".jar"), files)
+        check_jar(test, myzip.extract(artifact_format + ".jar", temp_dir), files)
         check_pom(test, myzip.open(artifact_format + ".pom"),
                   org_name, artifact_name, version, dependencies)
 
@@ -312,11 +332,12 @@ class TestCommandLineToolZip(unittest.TestCase):
         base_name = "zip-test"
         name = org_name + "/" + base_name
         p = run_cmd(["init", "-n", name, "-o", temp_dir, "-p"])
-        communicate(p, "1")
+        out, err = communicate(p, "1")
         version = "0.2"
         p = run_cmd(["zip", "-n", name, "-o", temp_dir, "-v", version,
                      "-f", join(temp_dir, base_name)])
-        p.wait()
+        # p.wait()
+        out, err = p.communicate()
         jar_contents = ["setup.pyc", "requirements.txt", "tests.pyc"]
         check_zip(self, temp_dir, org_name, base_name, version, files=jar_contents, dependencies=[])
         clean_dir(self, temp_dir)
@@ -370,6 +391,33 @@ class TestCommandLineToolZip(unittest.TestCase):
         check_zip(self, temp_dir, org_name, base_name, version,
                   files=jar_contents, dependencies=[("right", "format", "3")])
         clean_dir(self, temp_dir)
+
+
+class TestCommandLineToolRegister(unittest.TestCase):
+
+    def test_register_bad_args(self):
+        p = run_cmd(["register"])
+        check_exception(self, "Please specify the name of the package using -n or --name", p)
+
+    def test_ask_git_creds(self):
+        p = spawn(["register", "-n", "test/register"])
+        input_and_expect(p, [
+            (b"Please enter your Github username.*", "git-user"),
+            (b"Github Personal access token with read\:org.*", "git-password"),
+            (b"Please supply a short \(one line\) description of.*", None)])
+        p.kill(0)
+
+    @responses.activate
+    def test_simple_register(self):
+        responses.add(
+            responses.POST, 'http://spark-packages.org/api/submit-package',
+            body="",
+            status=201)
+        register_package_http("test/register", "fake", "token", "short", "long", "http://homepage")
+        self.assertTrue(len(responses.calls) == 1)
+        self.assertTrue(responses.calls[0].request.url ==
+                        'http://spark-packages.org/api/submit-package')
+
 
 
 if __name__ == '__main__':
