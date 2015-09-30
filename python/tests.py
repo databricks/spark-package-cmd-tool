@@ -27,7 +27,7 @@ def spawn(cmd):
 
 def input_and_expect(p, vals):
     for prompt, input in vals:
-        p.expect(re.compile(prompt).decode('utf-8'))
+        p.expect(re.compile(prompt))
         p.sendline(input)
 
 
@@ -339,7 +339,7 @@ class TestCommandLineToolZip(unittest.TestCase):
         p = run_cmd(["zip", "-n", name, "-o", temp_dir, "-v", version,
                      "-f", join(temp_dir, base_name)])
         # p.wait()
-        out, err = communicate(p)
+        out, err = p.communicate()
         print(out)
         print(err)
         jar_contents = ["setup.pyc", "requirements.txt", "tests.pyc"]
