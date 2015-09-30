@@ -246,7 +246,7 @@ def check_jar(test, jar, files):
     :param files: List of entries expected in the jar
     """
     if sys.version_info >= (3, 0):
-        jar_file = zipfile.PyZipFile(StringIO().write(str(jar.read())), 'r')
+        jar_file = zipfile.PyZipFile(StringIO().write(jar.read().decode()), 'r')
     else:
         jar_file = zipfile.PyZipFile(StringIO(jar.read()), 'r')
     entries = jar_file.namelist()
