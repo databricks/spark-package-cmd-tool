@@ -243,7 +243,7 @@ def check_jar(test, jar, files):
     :param files: List of entries expected in the jar
     """
     j_file = StringIO()
-    j_file.write(jar.decode("utf-8"))
+    j_file.write(jar.read())
     jar_file = zipfile.PyZipFile(j_file, 'r')
     entries = jar_file.namelist()
     for expected in files:
