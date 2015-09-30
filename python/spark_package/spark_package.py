@@ -328,8 +328,8 @@ def register_package_http(name, user, token, short_desc, long_desc, homepage):
               "homepage": homepage,
               "short_description": short_desc,
               "description": long_desc}
-    auth = base64.b64encode(user + ":" + token)
-    h = {"Authorization": "Basic " + auth}
+    auth = base64.b64encode((user + ":" + token).encode())
+    h = {"Authorization": "Basic " + auth.decode("utf-8")}
     return requests.post(url, headers=h, data=params)
 
 
@@ -353,7 +353,7 @@ def register_package(name, user, token):
 # <----- publish Methods ------>
 
 def publish_release(name, user, token, folder, version, out, zip):
-    auth = base64.b64encode(user + ":" + token)
+    auth = base64.b64encode((user + ":" + token).encode())
     pwd = os.getcwd()
     os.chdir(folder)
     p = subprocess.Popen(["git", "rev-parse", "HEAD"], stdout=subprocess.PIPE)
@@ -372,14 +372,14 @@ def publish_release(name, user, token, folder, version, out, zip):
     if zip is not None:
         with open(zip, 'rb') as f:
             binary_zip = base64.b64encode(f.read())
-    artifact_zip = StringIO(binary_zip)
+    artifact_zip = StringIO(binary_zip.decode("utf-8"))
     url = "http://spark-packages.org/api/submit-release"
     params = {"git_commit_sha1": git_sha1,
               "version": version,
               "license_id": license_id,
               "name": name}
     f = {"artifact_zip": artifact_zip}
-    h = {"Authorization": "Basic " + auth}
+    h = {"Authorization": "Basic " + auth.decode("utf-8")}
     resp = requests.post(url, headers=h, data=params, files=f)
     if resp.status_code == 201:
         print("\nSUCCESS: %s" % resp.text)
@@ -453,7 +453,7 @@ def validate_and_return_sp_dep(line):
 
 def pom_pretty_print(f):
     return '\n'.join([line for line in dom.parseString(f)
-        .toprettyxml(indent=' ' * 2, encoding='UTF-8').split('\n') if line.strip()])
+        .toprettyxml(indent=' ' * 2, encoding='UTF-8').split('\n') if line.strip()]).decode("utf-8")
 
 
 def pom_check_if_child_exists(parent, prefix, values, comparison_tags):
