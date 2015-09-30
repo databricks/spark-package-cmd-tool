@@ -26,7 +26,7 @@ def spawn(cmd):
 def input_and_expect(p, vals):
     for prompt, input in vals:
         if sys.version_info >= (3, 0):
-            p.expect(re.compile(bytes(prompt, 'utf-8')))
+            p.expect(re.compile(prompt))
         else:
             p.expect(re.compile(prompt))
         p.sendline(input)
@@ -227,7 +227,8 @@ def check_pom(test, pom, org_name, artifact_name, version, dependencies):
     :param version: version of release
     :param dependencies: List of dependencies expected in the pom
     """
-    contents = str(pom.read())
+    contents = pom.read().decode('utf-8')
+    print(contents)
     def gen_coordinate_regex(org, artifact, v):
         regex = """<groupId>\\s*%s\\s*<\\/groupId>\\s*""" % org
         regex += """<artifactId>\\s*%s\\s*<\\/artifactId>\\s*""" % artifact
