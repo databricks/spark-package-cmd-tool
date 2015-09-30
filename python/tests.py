@@ -3,7 +3,7 @@ import os
 from os.path import join,isfile,isdir
 import re
 import shutil
-from spark_package.spark_package import licenses, prepare_pom
+from spark_package.spark_package import licenses,register_package_http,check_homepage
 import sys
 if sys.version_info >= (3, 0):
     from io import StringIO
@@ -13,13 +13,32 @@ import subprocess
 import tempfile
 import unittest
 import zipfile
+import responses
+import pexpect
 
 def run_cmd(cmd):
     return subprocess.Popen(["spark-package"] + cmd, stdout=subprocess.PIPE,
                             stdin=subprocess.PIPE, stderr=subprocess.PIPE, close_fds = True)
 
 
+def spawn(cmd):
+    return pexpect.spawn(" ".join(["spark-package"] + cmd))
+
+
+def input_and_expect(p, vals):
+    for prompt, input in vals:
+        p.expect(re.compile(prompt))
+        p.sendline(input)
+
+
 def communicate(p, val):
+    if type(val) is list:
+        # stdo = [p.stdout.readline().decode("utf-8")]
+        for input in val:
+            p.stdin.write(input)
+            p.stdin.flush()
+            # stdo.append(p.stdout.readline().decode("utf-8"))
+        return p.communicate()
     if sys.version_info >= (3, 0):
         return p.communicate(val.encode())
     else:
@@ -57,9 +76,13 @@ def check_scala_files(test, temp_dir, name, exists=True):
 
 def check_base_files(test, temp_dir, name):
     base_name = name.split("/")[1]
+    print "checking base files"
     test.assertTrue(isfile(join(temp_dir, base_name, "LICENSE")))
+    print "found LICENSE"
     test.assertTrue(isfile(join(temp_dir, base_name, "README.md")))
+    print "found README"
     test.assertTrue(isfile(join(temp_dir, base_name, ".gitignore")))
+    print "found ignore"
 
 
 def check_python_files(test, temp_dir, name, exists=True):
@@ -185,8 +208,11 @@ class TestCommandLineToolInit(unittest.TestCase):
         for license_name, url, first_line in get_licenses():
             temp_dir = tempfile.mkdtemp()
             name = "license-%s" % i
+            print "license-%s" % i
             p = run_cmd(["init", "-n", "test/" + name, "-o", temp_dir])
-            communicate(p, str(i))
+            out, err = communicate(p, str(i))
+            print out
+            print err
             check_base_files(self, temp_dir, "test/" + name)
             if i != len(licenses):
                 with open(join(temp_dir, name, "build.sbt"), "r") as f:
@@ -370,6 +396,33 @@ class TestCommandLineToolZip(unittest.TestCase):
         check_zip(self, temp_dir, org_name, base_name, version,
                   files=jar_contents, dependencies=[("right", "format", "3")])
         clean_dir(self, temp_dir)
+
+
+class TestCommandLineToolRegister(unittest.TestCase):
+
+    def test_register_bad_args(self):
+        p = run_cmd(["register"])
+        check_exception(self, "Please specify the name of the package using -n or --name", p)
+
+    def test_ask_git_creds(self):
+        p = spawn(["register", "-n", "test/register"])
+        input_and_expect(p, [
+            ("Please enter your Github username.*", "git-user"),
+            ("Github Personal access token with read\:org.*", "git-password")])
+        p.expect(re.compile("Please supply a short \(one line\) description of.*"))
+        p.kill(0)
+
+    @responses.activate
+    def test_simple_register(self):
+        responses.add(
+            responses.POST, 'http://spark-packages.org/api/submit-package',
+            body="",
+            status=201)
+        register_package_http("test/register", "fake", "token", "short", "long", "http://homepage")
+        self.assertTrue(len(responses.calls) == 1)
+        self.assertTrue(responses.calls[0].request.url ==
+                        'http://spark-packages.org/api/submit-package')
+
 
 
 if __name__ == '__main__':

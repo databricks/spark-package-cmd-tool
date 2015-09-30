@@ -28,6 +28,7 @@ else:
     from StringIO import StringIO
 from getpass import getpass
 from pkg_resources import resource_string
+from builtins import input
 
 # <----- zip Methods ------>
 
@@ -203,10 +204,10 @@ def get_license_prompt():
 def create_license_file(license_id):
     file = 'LICENSE'
     if license_id == len(licenses):
-        res_file = resource_string('spark_package.resources', 'LICENSE')
+        res_file = resource_string('spark_package.resources', 'LICENSE').decode("utf-8")
     else:
         res_file = resource_string('spark_package.resources.license_temps',
-                                   licenses[license_id - 1][0])
+                                   licenses[license_id - 1][0]).decode("utf-8")
     f = open(file, 'w')
     f.write(res_file)
     f.close()
@@ -273,11 +274,14 @@ def init_empty_package(base_dir, name, scala, java, python, r):
     if os.path.exists(package_dir):
         raise RuntimeError("Directory %s already exists" % package_dir)
     license_id = get_license_id()
+    print license_id
     os.makedirs(package_dir)
     os.chdir(package_dir)
     create_license_file(license_id)
     create_static_file('README.md')
+    print "created README"
     create_static_file('.gitignore')
+    print "created gitignore"
     if not scala and not java:
         if python:
             init_python_directories()
@@ -300,7 +304,7 @@ def init_empty_package(base_dir, name, scala, java, python, r):
 # <----- register Methods ------>
 
 def get_description(desc_prompt):
-    desc_raw = raw_input(desc_prompt).strip()
+    desc_raw = input(desc_prompt).strip()
     if desc_raw == "":
         show_error_and_exit("Please supply a proper description or the path to a file:\n")
     if os.path.isfile(desc_raw):
@@ -317,28 +321,34 @@ def check_homepage(homepage):
     """
     Check if homepage exists, because users can't update a wrong link on the Spark Packages website.
     """
+    print homepage
     resp = requests.get(homepage)
+    print resp
     resp.raise_for_status()
 
 
-def register_package(name, user, token):
-    homepage = "https://github.com/" + name
-    auth = base64.b64encode(user + ":" + token)
-    short_desc = get_description("Please supply a short (one line) description of your package." + \
-                                 " You may also provide a file containing the short description:\n")
-    long_desc = get_description("Please supply a long description of your package." + \
-                                 " You may also provide a file containing the long description:\n")
-    new_hpg = raw_input("Homepage of your package (%s): " % homepage)
-    if len(new_hpg.strip()) > 0:
-        homepage = new_hpg
-    check_homepage(homepage)
+def register_package_http(name, user, token, short_desc, long_desc, homepage):
     url = "http://spark-packages.org/api/submit-package"
     params = {"name": name,
               "homepage": homepage,
               "short_description": short_desc,
               "description": long_desc}
+    auth = base64.b64encode(user + ":" + token)
     h = {"Authorization": "Basic " + auth}
-    resp = requests.post(url, headers=h, data=params)
+    return requests.post(url, headers=h, data=params)
+
+
+def register_package(name, user, token):
+    homepage = "https://github.com/" + name
+    short_desc = get_description("Please supply a short (one line) description of your package." + \
+                                 " You may also provide a file containing the short description:\n")
+    long_desc = get_description("Please supply a long description of your package." + \
+                                 " You may also provide a file containing the long description:\n")
+    new_hpg = input("Homepage of your package (%s): " % homepage)
+    if len(new_hpg.strip()) > 0:
+        homepage = new_hpg
+    check_homepage(homepage)
+    resp = register_package_http(name, user, token, short_desc, long_desc, homepage)
     if resp.status_code == 201:
         print("\nSUCCESS: %s" % resp.text)
     else:
@@ -365,7 +375,7 @@ def publish_release(name, user, token, folder, version, out, zip):
         zip = zip_artifact(folder, name, version, out)
     binary_zip = ""
     if zip is not None:
-        with open(zip) as f:
+        with open(zip, 'rb') as f:
             binary_zip = base64.b64encode(f.read())
     artifact_zip = StringIO(binary_zip)
     url = "http://spark-packages.org/api/submit-release"
@@ -384,10 +394,10 @@ def publish_release(name, user, token, folder, version, out, zip):
 # <----- util Methods ------>
 
 def get_license_id():
-    license_id = int(raw_input(get_license_prompt()))
+    license_id = int(input(get_license_prompt()))
     while license_id < 1 or license_id > len(licenses):
         print("Please enter a value between 1-%d" % len(licenses))
-        license_id = int(raw_input(get_license_prompt()))
+        license_id = int(input(get_license_prompt()))
     return license_id
 
 def get_license_file_name(root_dir):
@@ -519,7 +529,7 @@ def resolve_credentials(user, token, file):
         if os.path.isfile(file):
             return read_credentials_file(file)
     if user is None or len(user.strip()) == 0:
-        git_user = raw_input("Please enter your Github username: ").strip()
+        git_user = input("Please enter your Github username: ").strip()
     else:
         git_user = user
     if git_user == "":
@@ -542,7 +552,7 @@ def create_static_file(file, permission=None, replacements=None):
         file_name = file[file.rfind(os.path.sep):]
     else:
         file_name = file
-    res_file = resource_string('spark_package.resources', file_name)
+    res_file = resource_string('spark_package.resources', file_name).decode("utf-8")
     if replacements is not None:
         for placeholder, value in replacements:
             res_file = res_file.replace(placeholder, value)
