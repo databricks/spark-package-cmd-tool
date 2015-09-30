@@ -27,7 +27,7 @@ def spawn(cmd):
 
 def input_and_expect(p, vals):
     for prompt, input in vals:
-        p.expect(re.compile(prompt))
+        p.expect(re.compile(prompt).decode('utf-8'))
         p.sendline(input)
 
 
@@ -206,9 +206,7 @@ class TestCommandLineToolInit(unittest.TestCase):
             name = "license-%s" % i
             print("license-%s" % i)
             p = run_cmd(["init", "-n", "test/" + name, "-o", temp_dir])
-            out, err = communicate(p, str(i))
-            print(out)
-            print(err)
+            communicate(p, str(i))
             check_base_files(self, temp_dir, "test/" + name)
             if i != len(licenses):
                 with open(join(temp_dir, name, "build.sbt"), "r") as f:
@@ -334,11 +332,16 @@ class TestCommandLineToolZip(unittest.TestCase):
         base_name = "zip-test"
         name = org_name + "/" + base_name
         p = run_cmd(["init", "-n", name, "-o", temp_dir, "-p"])
-        communicate(p, "1")
+        out, err = communicate(p, "1")
+        print(out)
+        print(err)
         version = "0.2"
         p = run_cmd(["zip", "-n", name, "-o", temp_dir, "-v", version,
                      "-f", join(temp_dir, base_name)])
-        p.wait()
+        # p.wait()
+        out, err = communicate(p)
+        print(out)
+        print(err)
         jar_contents = ["setup.pyc", "requirements.txt", "tests.pyc"]
         check_zip(self, temp_dir, org_name, base_name, version, files=jar_contents, dependencies=[])
         clean_dir(self, temp_dir)
