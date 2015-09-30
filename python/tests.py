@@ -26,7 +26,7 @@ def spawn(cmd):
 def input_and_expect(p, vals):
     for prompt, input in vals:
         if sys.version_info >= (3, 0):
-            p.expect(re.compile(prompt.encode('utf-8')))
+            p.expect(re.compile(bytearray(prompt, 'utf-8')))
         else:
             p.expect(re.compile(prompt))
         p.sendline(input)
@@ -245,9 +245,10 @@ def check_jar(test, jar, files):
     Check the contents of the pom. Make sure the groupId, artifactId, and version are properly set.
     :param files: List of entries expected in the jar
     """
-    j_file = StringIO()
-    j_file.write(str(jar.read()))
-    jar_file = zipfile.PyZipFile(j_file, 'r')
+    if sys.version_info >= (3, 0):
+        jar_file = zipfile.PyZipFile(StringIO().write(jar.read()), 'r')
+    else:
+        jar_file = zipfile.PyZipFile(StringIO(jar.read()), 'r')
     entries = jar_file.namelist()
     for expected in files:
         test.assertTrue(expected in entries)
