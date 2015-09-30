@@ -227,7 +227,7 @@ def check_pom(test, pom, org_name, artifact_name, version, dependencies):
     :param version: version of release
     :param dependencies: List of dependencies expected in the pom
     """
-    contents = pom.read()
+    contents = pom.read().encode('utf-8')
     def gen_coordinate_regex(org, artifact, v):
         regex = """<groupId>\\s*%s\\s*<\\/groupId>\\s*""" % org
         regex += """<artifactId>\\s*%s\\s*<\\/artifactId>\\s*""" % artifact
