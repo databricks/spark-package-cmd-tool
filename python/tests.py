@@ -25,7 +25,10 @@ def spawn(cmd):
 
 def input_and_expect(p, vals):
     for prompt, input in vals:
-        p.expect(re.compile(prompt.encode('utf-8').decode()))
+        if sys.version_info >= (3, 0):
+            p.expect(re.compile(prompt.encode('utf-8')))
+        else:
+            p.expect(re.compile(prompt))
         p.sendline(input)
 
 
@@ -243,7 +246,7 @@ def check_jar(test, jar, files):
     :param files: List of entries expected in the jar
     """
     j_file = StringIO()
-    j_file.write(jar.read())
+    j_file.write(str(jar.read()))
     jar_file = zipfile.PyZipFile(j_file, 'r')
     entries = jar_file.namelist()
     for expected in files:
