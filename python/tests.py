@@ -25,7 +25,7 @@ def spawn(cmd):
 
 def input_and_expect(p, vals):
     for prompt, input in vals:
-        p.expect(re.compile(b'%s' % prompt))
+        p.expect(re.compile(prompt.decode('utf-8')))
         p.sendline(input)
 
 
