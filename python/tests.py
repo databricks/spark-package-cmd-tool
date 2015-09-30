@@ -1,5 +1,3 @@
-import json
-import os
 from os.path import join,isfile,isdir
 import re
 import shutil
@@ -27,7 +25,7 @@ def spawn(cmd):
 
 def input_and_expect(p, vals):
     for prompt, input in vals:
-        p.expect(re.compile(prompt))
+        p.expect(re.compile(prompt.encode('utf-8')))
         p.sendline(input)
 
 
@@ -244,7 +242,7 @@ def check_jar(test, jar, files):
     Check the contents of the pom. Make sure the groupId, artifactId, and version are properly set.
     :param files: List of entries expected in the jar
     """
-    jar_file = zipfile.PyZipFile(StringIO(jar.read()), 'r')
+    jar_file = zipfile.PyZipFile(StringIO(jar.read().encode('utf-8')), 'r')
     entries = jar_file.namelist()
     for expected in files:
         test.assertTrue(expected in entries)
