@@ -204,7 +204,7 @@ class TestCommandLineToolInit(unittest.TestCase):
         for license_name, url, first_line in get_licenses():
             temp_dir = tempfile.mkdtemp()
             name = "license-%s" % i
-            print "license-%s" % i
+            print("license-%s" % i)
             p = run_cmd(["init", "-n", "test/" + name, "-o", temp_dir])
             out, err = communicate(p, str(i))
             print(out)
