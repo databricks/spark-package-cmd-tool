@@ -452,8 +452,8 @@ def validate_and_return_sp_dep(line):
 
 
 def pom_pretty_print(f):
-    return '\n'.join([line for line in dom.parseString(f)
-        .toprettyxml(indent=' ' * 2, encoding='UTF-8').split('\n') if line.strip()]).decode("utf-8")
+    return dom.parseString(f).toprettyxml(indent=' ' * 2, encoding='UTF-8')\
+        .decode("utf-8").strip('\n')
 
 
 def pom_check_if_child_exists(parent, prefix, values, comparison_tags):
