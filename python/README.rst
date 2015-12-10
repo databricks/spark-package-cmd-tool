@@ -5,6 +5,15 @@ Command Line Tool for working with `Spark Packages`_
 
 .. _Spark Packages: http://spark-packages.org
 
+Install
+-------
+
+For Python 2, the future package is required (and an upgrade may be required for older versions):
+
+```
+sudo pip install --upgrade future
+```
+
 Usage
 -----
 
