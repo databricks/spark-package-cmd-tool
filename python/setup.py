@@ -17,5 +17,8 @@ setup(
     package_data={"spark_package.resources": resource_files,
                   'spark_package.resources.license_temps': listdir(path.join('spark_package', 'resources', 'license_temps'))},
     entry_points = {'console_scripts': ['spark-package=spark_package.spark_package:main']},
-    long_description=open('README.rst').read()
+    long_description=open('README.rst').read(),
+    install_requires=[
+        "future >= 0.15"
+    ]
 )
