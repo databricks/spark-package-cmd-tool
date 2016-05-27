@@ -323,7 +323,7 @@ def check_homepage(homepage):
 
 
 def register_package_http(name, user, token, short_desc, long_desc, homepage):
-    url = "http://spark-packages.org/api/submit-package"
+    url = "https://spark-packages.org/api/submit-package"
     params = {"name": name,
               "homepage": homepage,
               "short_description": short_desc,
@@ -373,7 +373,7 @@ def publish_release(name, user, token, folder, version, out, zip):
         with open(zip, 'rb') as f:
             binary_zip = base64.b64encode(f.read())
     artifact_zip = StringIO(binary_zip.decode("utf-8"))
-    url = "http://spark-packages.org/api/submit-release"
+    url = "https://spark-packages.org/api/submit-release"
     params = {"git_commit_sha1": git_sha1,
               "version": version,
               "license_id": license_id,
