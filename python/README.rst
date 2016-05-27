@@ -3,7 +3,10 @@ spark-package Command Line Tool
 
 Command Line Tool for working with `Spark Packages`_
 
-.. _Spark Packages: http://spark-packages.org
+.. _Spark Packages: https://spark-packages.org
+
+**Please upgrade to latest version as spark-packages now supports SSL**
+`pip install --upgrade spark-package`
 
 Usage
 -----

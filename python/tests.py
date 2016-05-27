@@ -410,13 +410,13 @@ class TestCommandLineToolRegister(unittest.TestCase):
     @responses.activate
     def test_simple_register(self):
         responses.add(
-            responses.POST, 'http://spark-packages.org/api/submit-package',
+            responses.POST, 'https://spark-packages.org/api/submit-package',
             body="",
             status=201)
         register_package_http("test/register", "fake", "token", "short", "long", "http://homepage")
         self.assertTrue(len(responses.calls) == 1)
         self.assertTrue(responses.calls[0].request.url ==
-                        'http://spark-packages.org/api/submit-package')
+                        'https://spark-packages.org/api/submit-package')
 
 
 

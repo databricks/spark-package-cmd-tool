@@ -3,7 +3,11 @@ spark-package Command Line Tool [![Build Status](https://travis-ci.org/databrick
 
 Command Line Tool for working with `Spark Packages`.
 
-`Spark Packages`: http://spark-packages.org
+`Spark Packages`: https://spark-packages.org
+
+**Please upgrade to latest version as spark-packages now supports SSL**
+
+`pip install --upgrade spark-package`
 
 Install
 -------
